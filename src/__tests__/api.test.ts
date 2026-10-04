@@ -110,7 +110,7 @@ describe("POST /api/analyze", () => {
     expect(data.clarifying_questions).toHaveLength(2);
   });
 
-  it("returns 500 if GEMINI_API_KEY is not configured", async () => {
+  it("falls back gracefully when GEMINI_API_KEY is not configured", async () => {
     delete process.env.GEMINI_API_KEY;
 
     const req = new NextRequest("http://localhost:3000/api/analyze", {
@@ -122,8 +122,9 @@ describe("POST /api/analyze", () => {
     });
 
     const res = await analyzePOST(req);
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.error).toContain("GEMINI_API_KEY is not configured");
+    expect(data.assumptions.length).toBeGreaterThan(0);
+    expect(data.questions.length).toBeGreaterThanOrEqual(3);
   });
 });
