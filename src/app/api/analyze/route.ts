@@ -3,7 +3,16 @@ import { AnalyzeRequestSchema } from "@/lib/schema";
 import { analyzeDecision } from "@/lib/gemini";
 import { checkRateLimit } from "@/lib/ratelimit";
 
+export const maxDuration = 60;
+
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json(
+      { error: "GEMINI_API_KEY is not configured in Vercel environment variables. Please add it in project settings and redeploy." },
+      { status: 500 }
+    );
+  }
+
   // Rate limit
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   const rateCheck = checkRateLimit(ip);

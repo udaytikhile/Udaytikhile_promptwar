@@ -4,8 +4,13 @@ import type { AnalysisResponse, FollowupResponse } from "./schema";
 import { ANALYZE_SYSTEM_PROMPT, FOLLOWUP_SYSTEM_PROMPT, buildAnalyzeUserPrompt, buildFollowupUserPrompt } from "./prompts";
 import { findAdviceInResponse, stripAdviceItems } from "./guard";
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
-const TIMEOUT_MS = 15_000;
+const CANDIDATE_MODELS = [
+  process.env.GEMINI_MODEL,
+  "gemini-3.5-flash-lite",
+  "gemini-3.5-flash",
+  "gemini-flash-latest",
+].filter(Boolean) as string[];
+const TIMEOUT_MS = 25_000;
 
 function getClient(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -94,37 +99,66 @@ async function callGemini(
   responseConfig: typeof ANALYSIS_RESPONSE_CONFIG | typeof FOLLOWUP_RESPONSE_CONFIG
 ): Promise<string> {
   const client = getClient();
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  let lastError: unknown;
 
-  try {
-    const response = await client.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: userPrompt,
-      config: {
-        systemInstruction: systemPrompt,
-        ...responseConfig,
-        maxOutputTokens: 2048,
-        temperature: 0.7,
-      },
-    });
+  for (const model of CANDIDATE_MODELS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
-    const text = response.text;
-    if (!text) throw new Error("Empty response from Gemini");
-    return text;
-  } finally {
-    clearTimeout(timeout);
+    try {
+      const response = await client.models.generateContent({
+        model,
+        contents: userPrompt,
+        config: {
+          systemInstruction: systemPrompt,
+          ...responseConfig,
+          maxOutputTokens: 2048,
+          temperature: 0.7,
+        },
+      });
+
+      const text = response.text;
+      if (!text) throw new Error("Empty response from Gemini");
+      return text;
+    } catch (err) {
+      console.warn(`Gemini model ${model} failed, checking fallbacks:`, err);
+      lastError = err;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
+
+  throw lastError || new Error("All candidate Gemini models failed");
 }
 
 const STRICTER_REMINDER = "\n\nCRITICAL REMINDER: Your previous response contained directive language. You must NEVER use 'you should', 'I recommend', 'best option', 'better to', 'I suggest', 'go with', or 'you ought' in declarative statements. Rephrase using 'might', 'may', 'could', or frame as questions. Output only JSON.";
+
+function normalizeAnalysisPayload(payload: unknown): unknown {
+  if (!payload || typeof payload !== "object") return payload;
+  const p = payload as Record<string, unknown>;
+  if (Array.isArray(p.questions)) {
+    const fallbacks = [
+      "What assumptions might you be making that are hardest to reverse?",
+      "If you chose an alternative path, what would you most appreciate about that outcome?",
+      "What new information would change your confidence if you knew it today?",
+    ];
+    for (const f of fallbacks) {
+      if (p.questions.length >= 3) break;
+      if (!p.questions.includes(f)) p.questions.push(f);
+    }
+    if (p.questions.length > 5) {
+      p.questions = p.questions.slice(0, 5);
+    }
+  }
+  return p;
+}
 
 export async function analyzeDecision(decision: string, reasons: string): Promise<AnalysisResponse> {
   const userPrompt = buildAnalyzeUserPrompt(decision, reasons);
 
   // First attempt
   let rawText = await callGemini(ANALYZE_SYSTEM_PROMPT, userPrompt, ANALYSIS_RESPONSE_CONFIG);
-  const parsed = AnalysisResponseSchema.parse(JSON.parse(rawText));
+  const parsed = AnalysisResponseSchema.parse(normalizeAnalysisPayload(JSON.parse(rawText)));
 
   // Check for advice
   const adviceFields = findAdviceInResponse(parsed);
@@ -136,7 +170,7 @@ export async function analyzeDecision(decision: string, reasons: string): Promis
         userPrompt,
         ANALYSIS_RESPONSE_CONFIG
       );
-      const retryParsed = AnalysisResponseSchema.parse(JSON.parse(rawText));
+      const retryParsed = AnalysisResponseSchema.parse(normalizeAnalysisPayload(JSON.parse(rawText)));
       const retryAdvice = findAdviceInResponse(retryParsed);
       if (retryAdvice.length === 0) {
         return retryParsed;
