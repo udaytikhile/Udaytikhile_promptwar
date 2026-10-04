@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef, type FormEvent } from "react";
+import { useState, useCallback, useRef, memo, useEffect, type FormEvent } from "react";
+import { MAX_DECISION_CHARS, MAX_REASONS_CHARS } from "@/lib/constants";
 
 const EXAMPLE_DECISION = `I've been offered a 6-month internship starting next month. The stipend is good (₹25,000/month), and the office is only 20 minutes from home. The role is "Operations Associate" — general operations work. I'd be working 40 hours a week. The catch: my college semester is still running, with classes and mid-semester exams coming up in 6 weeks. I'd have to manage both simultaneously.`;
 
@@ -13,10 +14,32 @@ interface DecisionFormProps {
   initialReasons?: string;
 }
 
-export default function DecisionForm({ onSubmit, isLoading, initialDecision = "", initialReasons = "" }: DecisionFormProps) {
+export default memo(function DecisionForm({
+  onSubmit,
+  isLoading,
+  initialDecision = "",
+  initialReasons = "",
+}: DecisionFormProps) {
   const [decision, setDecision] = useState(initialDecision);
   const [reasons, setReasons] = useState(initialReasons);
+  const [debouncedDecisionLen, setDebouncedDecisionLen] = useState(initialDecision.length);
+  const [debouncedReasonsLen, setDebouncedReasonsLen] = useState(initialReasons.length);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Debounce counter updates to avoid excessive screen reader announcements and re-renders
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedDecisionLen(decision.length);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [decision]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedReasonsLen(reasons.length);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [reasons]);
 
   const handleSubmit = useCallback(
     (e: FormEvent) => {
@@ -40,17 +63,17 @@ export default function DecisionForm({ onSubmit, isLoading, initialDecision = ""
             Your decision and its details
           </label>
           <span className="text-xs text-zinc-500" aria-live="polite">
-            {decision.length}/1500
+            {debouncedDecisionLen}/{MAX_DECISION_CHARS}
           </span>
         </div>
         <textarea
           id="decision-input"
           value={decision}
-          onChange={(e) => setDecision(e.target.value.slice(0, 1500))}
+          onChange={(e) => setDecision(e.target.value.slice(0, MAX_DECISION_CHARS))}
           className="input-field min-h-[140px] resize-y"
           placeholder="Describe the decision you're facing — options, constraints, timeline, any key numbers..."
           required
-          maxLength={1500}
+          maxLength={MAX_DECISION_CHARS}
           aria-required="true"
           aria-describedby="decision-hint"
         />
@@ -65,17 +88,17 @@ export default function DecisionForm({ onSubmit, isLoading, initialDecision = ""
             What&apos;s driving your thinking?
           </label>
           <span className="text-xs text-zinc-500" aria-live="polite">
-            {reasons.length}/600
+            {debouncedReasonsLen}/{MAX_REASONS_CHARS}
           </span>
         </div>
         <textarea
           id="reasons-input"
           value={reasons}
-          onChange={(e) => setReasons(e.target.value.slice(0, 600))}
+          onChange={(e) => setReasons(e.target.value.slice(0, MAX_REASONS_CHARS))}
           className="input-field min-h-[90px] resize-y"
           placeholder="The main reasons you're leaning a certain way..."
           required
-          maxLength={600}
+          maxLength={MAX_REASONS_CHARS}
           aria-required="true"
           aria-describedby="reasons-hint"
         />
@@ -115,4 +138,4 @@ export default function DecisionForm({ onSubmit, isLoading, initialDecision = ""
       </div>
     </form>
   );
-}
+});

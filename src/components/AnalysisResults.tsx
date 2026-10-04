@@ -16,14 +16,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-function EvidenceQuote({ text }: { text: string }) {
-  return (
-    <p className="evidence-quote">
-      <span className="sr-only">Evidence: </span>
-      You wrote: &ldquo;{text}&rdquo;
-    </p>
-  );
-}
+import EvidenceQuote from "./EvidenceQuote";
 
 interface AnalysisResultsProps {
   data: AnalysisResponse;
