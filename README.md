@@ -83,7 +83,7 @@ npm run build
 | Variable | Required | Description |
 |---|---|---|
 | `GEMINI_API_KEY` | Yes | Google Gemini API key (server-side only) |
-| `GEMINI_MODEL` | No | Gemini model name (default: `gemini-2.0-flash`) |
+| `GEMINI_MODEL` | No | Gemini model name (default: `gemini-3.5-flash-lite`, with auto-fallback) |
 
 ## Google Services Used
 
@@ -109,10 +109,11 @@ npm run build
 npm test
 ```
 
-**19 tests** across 3 test suites:
+**27 tests** across 4 test suites:
 - `guard.test.ts`: Advice detection, neutral pass-through, question exemption, nested scanning, item stripping
 - `schema.test.ts`: Valid/invalid request schemas, response validation, edge cases
 - `ratelimit.test.ts`: Under limit, over limit, independent IP tracking
+- `api.test.ts`: API route handling, empty input rejection, prompt injection resilience, vague input handling, error isolation
 
 ## Accessibility
 
