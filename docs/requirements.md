@@ -14,4 +14,4 @@
 - Follow-up endpoint for deeper reflection after user answers questions
 - 8-10 Vitest tests covering guard, schemas, API routes
 - WCAG AA accessible, semantic HTML, aria-live regions
-- Responsive dark theme with custom design (not template look)
+- Responsive clean light theme with custom paper/studio design (not template look)

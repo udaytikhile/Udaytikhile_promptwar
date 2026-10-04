@@ -28,7 +28,7 @@ export const FollowupRequestSchema = z.object({
     .trim()
     .min(5)
     .max(600),
-  answers: z.record(z.string().max(500)),
+  answers: z.record(z.string(), z.string().max(500)),
 });
 
 export type FollowupRequest = z.infer<typeof FollowupRequestSchema>;
