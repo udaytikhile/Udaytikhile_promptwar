@@ -124,7 +124,7 @@ export async function analyzeDecision(decision: string, reasons: string): Promis
 
   // First attempt
   let rawText = await callGemini(ANALYZE_SYSTEM_PROMPT, userPrompt, ANALYSIS_RESPONSE_CONFIG);
-  let parsed = AnalysisResponseSchema.parse(JSON.parse(rawText));
+  const parsed = AnalysisResponseSchema.parse(JSON.parse(rawText));
 
   // Check for advice
   const adviceFields = findAdviceInResponse(parsed);
